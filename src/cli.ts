@@ -3,12 +3,14 @@ import { writeFile } from "node:fs/promises";
 import { loadScenario } from "./scenario/load.ts";
 import { checkGraphIntegrity } from "./scenario/graph.ts";
 import { generateFlowchart } from "./scenario/flowchart.ts";
+import { facilitateRun } from "./run/facilitate.ts";
 
 const HELP_TEXT = `incident-exercising - tabletop incident exercise tooling
 
 Usage:
   incident-exercising validate <scenario.yaml>
   incident-exercising flowchart <scenario.yaml> [--out <file.mmd>]
+  incident-exercising run <scenario.yaml> [--transcript-dir <dir>]
   incident-exercising help
 
 Commands:
@@ -17,6 +19,10 @@ Commands:
               and paths with no ending.
   flowchart   Generate a Mermaid flowchart of a scenario's branching graph.
               Prints to stdout unless --out is given.
+  run         Interactively facilitate a scenario in the terminal: prints
+              each node's inject and facilitator notes, prompts for which
+              branch the group chose, and writes a JSON transcript of the
+              path taken when finished (default ./transcripts).
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -27,6 +33,8 @@ async function main(argv: string[]): Promise<number> {
       return runValidate(rest);
     case "flowchart":
       return runFlowchart(rest);
+    case "run":
+      return runFacilitate(rest);
     case "help":
     case undefined:
       console.log(HELP_TEXT);
@@ -88,6 +96,42 @@ async function runFlowchart(args: string[]): Promise<number> {
   } else {
     console.log(diagram);
   }
+
+  return 0;
+}
+
+async function runFacilitate(args: string[]): Promise<number> {
+  const filePath = args[0];
+  if (!filePath) {
+    console.error(
+      "Usage: incident-exercising run <scenario.yaml> [--transcript-dir <dir>]",
+    );
+    return 1;
+  }
+
+  const dirIndex = args.indexOf("--transcript-dir");
+  const transcriptDir =
+    (dirIndex !== -1 ? args[dirIndex + 1] : undefined) ?? "./transcripts";
+
+  const scenario = await loadScenario(filePath);
+  const issues = checkGraphIntegrity(scenario);
+  const errors = issues.filter((issue) => issue.severity === "error");
+  if (errors.length > 0) {
+    for (const issue of errors) {
+      console.error(`error: ${issue.message}`);
+    }
+    console.error(
+      "\nScenario has structural errors — fix them (see `validate`) before running.",
+    );
+    return 1;
+  }
+
+  const transcriptPath = await facilitateRun(scenario, {
+    input: process.stdin,
+    output: process.stdout,
+    transcriptDir,
+  });
+  console.log(`\nTranscript written to ${transcriptPath}`);
 
   return 0;
 }
