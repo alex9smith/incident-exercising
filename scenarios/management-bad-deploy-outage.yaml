@@ -1,0 +1,180 @@
+id: management-bad-deploy-outage
+title: "Bad deploy: checkout errors and an unclear rollback"
+audience: management
+duration_minutes: 60
+summary: >
+  A routine deploy to the checkout service is followed by a rising error
+  rate. The on-call engineer has already started investigating; this
+  scenario picks up as it becomes a management-level coordination problem
+  — deciding whether to roll back, who to tell, and when to escalate
+  further, rather than debugging the code itself.
+objectives:
+  - Test the rollback-vs-fix-forward decision process and who owns it
+  - Exercise cross-team coordination when the cause spans two teams' services
+  - Clarify when and how customer-facing comms get triggered from a technical incident
+  - Surface gaps in the criteria for escalating to senior management/exec
+category: availability
+roles:
+  - name: Incident Manager
+    description: Coordinates the response, owns the rollback/fix-forward call, chairs the incident channel
+  - name: Engineering Lead (Checkout team)
+    description: Owns the deployed service, advises on rollback risk and root cause
+  - name: Engineering Lead (Payments team)
+    description: Owns the downstream dependency implicated once investigation widens
+  - name: Support/Comms Lead
+    description: Owns customer-facing status updates and support team briefing
+start: node-alert
+nodes:
+  - id: node-alert
+    title: Error rate climbing
+    inject: >
+      14:02. Checkout error rate has climbed from a baseline of 0.2% to
+      6% over the last ten minutes, following a checkout service deploy
+      at 13:50. The on-call engineer has acknowledged the alert and is
+      looking at logs. No customer complaints yet. You are the Incident
+      Manager on rotation and have just been paged as a heads-up.
+    facilitator_notes: >
+      Watch for: do they wait for the on-call engineer to diagnose before
+      doing anything, or do they immediately ask "can we just roll back
+      the 13:50 deploy?" A strong response asks that question early even
+      before root cause is known — rollback is usually cheap and
+      reversible, and doesn't require understanding why it broke.
+    branches:
+      - label: Ask the on-call engineer to roll back the 13:50 deploy immediately
+        next: node-rollback-attempted
+      - label: Let the on-call engineer continue investigating before deciding on rollback
+        next: node-investigation-continues
+
+  - id: node-investigation-continues
+    title: Error rate keeps climbing
+    inject: >
+      14:12. Error rate is now 18% and climbing. The on-call engineer
+      reports the errors are timeouts calling the payments service, and
+      isn't yet sure if that's caused by the checkout deploy or a
+      coincidental problem on the payments side. Support have started
+      getting the first customer complaints about failed payments.
+    facilitator_notes: >
+      This is the point where continuing to "wait and see" becomes a
+      genuine cost — 8 more minutes of climbing errors and now customer
+      complaints. Note whether the group still considers rollback even
+      though root cause is now ambiguous (checkout vs payments).
+    branches:
+      - label: Roll back the checkout deploy now, even without full root cause confirmed
+        next: node-rollback-attempted
+      - label: Pull in the Payments team lead to investigate their service before deciding
+        next: node-payments-pulled-in
+
+  - id: node-payments-pulled-in
+    title: Two teams, no clear owner
+    inject: >
+      14:20. Payments team lead joins and reports their service looks
+      healthy from their side, but is receiving a higher-than-normal
+      volume of requests from checkout with a different call pattern
+      than usual. Both teams are now on the call. Error rate is 24%.
+      Support is asking for a status update to put on the status page —
+      nobody has given them one yet.
+    facilitator_notes: >
+      Two things to watch: (1) is there a single named Incident Manager
+      making the call, or is this drifting into two teams debating whose
+      fault it is; (2) has anyone actually answered Support, or has that
+      request been sitting unanswered while the technical discussion
+      continues? Silence on external comms is itself a decision.
+    branches:
+      - label: Roll back the checkout deploy now and treat payments as a downstream symptom to verify afterwards
+        next: node-rollback-attempted
+      - label: Continue joint investigation to find true root cause before acting
+        next: node-widespread-outage
+
+  - id: node-widespread-outage
+    title: Full checkout outage
+    inject: >
+      14:35. Error rate has reached 78% — checkout is effectively down.
+      Investigation is still ongoing and has not reached a conclusion.
+      Support has now had to put up a generic "we're experiencing
+      technical difficulties" status page update on their own initiative,
+      without incident team sign-off, because they had no update to work
+      from.
+    facilitator_notes: >
+      A deliberate "cost of delay" ending — investigation-without-action
+      allowed to run for 33 minutes past the first alert. Good debrief
+      question: at what error rate / elapsed time should rollback become
+      the default action regardless of root cause certainty? Also flag
+      that Support acted unilaterally because they were left without
+      information — a process gap, not a Support failure.
+
+  - id: node-rollback-attempted
+    title: Rollback in progress
+    inject: >
+      The checkout deploy is being rolled back. It will take approximately
+      8 minutes to complete and verify. The Incident Manager now needs to
+      decide what to tell Support/customers while this happens, and
+      whether this qualifies as a "major incident" requiring wider
+      notification (senior management, other dependent teams).
+    facilitator_notes: >
+      Push for specifics: what exactly goes on the status page right now,
+      before you know if the rollback will even fix it? A good answer
+      commits to a factual, non-speculative holding message ("investigating
+      elevated checkout errors") rather than either silence or premature
+      reassurance ("issue resolved"). Also check: is there an actual
+      severity/major-incident threshold being applied, or is the decision
+      ad hoc?
+    branches:
+      - label: Declare a major incident and notify senior management now, before knowing if rollback worked
+        next: node-rollback-result-major
+      - label: Wait to see if the rollback fixes it before deciding on wider notification
+        next: node-rollback-result-quiet
+
+  - id: node-rollback-result-quiet
+    title: Rollback succeeds, no one told
+    inject: >
+      14:48. The rollback completes and error rate returns to baseline
+      within a few minutes. The incident is resolved from a technical
+      standpoint. However, senior management first hears about a "checkout
+      outage" 40 minutes later, secondhand, from a customer success
+      manager relaying a client's complaint — not from the incident team.
+    facilitator_notes: >
+      Technically a good outcome (fast detection, fast rollback) undermined
+      by a comms gap. Good debrief: even incidents resolved quickly and
+      well can look bad if the first senior management hears of it is
+      from outside the team. What's the actual threshold/expectation for
+      proactively notifying upwards, even for short incidents?
+    branches:
+      - label: Send a retrospective notification and write up a post-incident summary
+        next: node-good-resolution
+      - label: Treat it as resolved and move on without further notification
+        next: node-good-resolution
+
+  - id: node-rollback-result-major
+    title: Rollback succeeds, major incident process followed
+    inject: >
+      14:48. The rollback completes and error rate returns to baseline.
+      Senior management were notified when the major incident was
+      declared and received a follow-up the moment it was resolved, with
+      accurate timing and impact (26 minutes of degraded checkout,
+      peaking at 78% error rate). Support had a clear, accurate status
+      page update throughout and could give customers a real answer.
+    facilitator_notes: >
+      The strongest ending: fast detection, decisive rollback without
+      waiting for full root cause, proactive upward and outward
+      communication. Use this as the reference point in debrief — ask
+      what made it possible to declare a major incident confidently
+      without yet knowing the root cause, and whether that threshold is
+      written down anywhere or was a judgement call this time.
+    branches:
+      - label: Move to post-incident review
+        next: node-good-resolution
+
+  - id: node-good-resolution
+    title: Incident closed
+    inject: >
+      The immediate incident is over. Root cause (a config change in the
+      13:50 deploy that mishandled a payments response format under load)
+      still needs a proper write-up and fix-forward plan, separate from
+      this exercise.
+    facilitator_notes: >
+      Use this node to close the session and move to debrief. Good
+      discussion prompts: was there a documented severity/major-incident
+      threshold the group actually used, or did they improvise one live?
+      Did cross-team ownership (checkout vs payments) get resolved quickly
+      or cause friction? Was Support treated as a stakeholder to inform
+      proactively, or an afterthought?
