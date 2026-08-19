@@ -1,0 +1,7 @@
+# Everything in this folder is ignored by default except this file and the
+# README explaining what belongs here. Scenarios that reference real
+# organisational detail and aren't meant to be shared publicly go here
+# instead of scenarios/.
+*
+!.gitignore
+!README.md

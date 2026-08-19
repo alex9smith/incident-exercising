@@ -19,10 +19,12 @@ the authoring process changes; the wrappers should rarely need to change.
    the user hasn't set one up yet, point them at
    `org-context/README.md` and offer to help fill in
    `org-context.template.md` from a short conversation before continuing.
-   **Never write real organisational detail into any file that isn't
-   under `org-context/`** — scenario files under `scenarios/` are meant to
-   be shareable/open source, so they should stay genericised (fictional
-   company/product/system names) even when inspired by real context.
+   **Never write real organisational detail into a scenario under
+   `scenarios/`** — that folder is shareable/open source, so scenarios
+   there should stay genericised (fictional company/product/system names)
+   even when inspired by real context. If the user wants to keep real
+   detail, write the scenario to `scenarios-private/` instead (gitignored,
+   same format — see `scenarios-private/README.md`).
 2. Confirm the audience level (`technical`, `management`, `exec`) — this
    drives tone, stakes, and what kind of decisions the scenario should
    center on (see the existing worked examples in `scenarios/` for
@@ -60,9 +62,9 @@ the authoring process changes; the wrappers should rarely need to change.
 5. **Genericise anything sensitive** pulled from org context: replace real
    system/product/team/company names and any real past-incident specifics
    with clearly fictional equivalents, unless the user explicitly says the
-   scenario itself is private and won't be committed to a public repo (in
-   which case it belongs outside `scenarios/`, e.g. in an ignored path —
-   check with the user before assuming).
+   scenario itself is private and won't be committed to a public repo —
+   in that case, write it to `scenarios-private/` instead of `scenarios/`
+   (see `scenarios-private/README.md`); don't genericise it there.
 6. **Validate and review the flowchart** before considering it done:
    ```bash
    npm run cli -- validate scenarios/<new-scenario>.yaml

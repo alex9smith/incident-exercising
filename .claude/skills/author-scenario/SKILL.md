@@ -12,9 +12,12 @@ In particular:
 - Check `org-context/` for a filled-in organisational context file
   (anything beyond `README.md`, `.gitignore`, `org-context.template.md`)
   before drafting. If none exists, point the user at `org-context/README.md`.
-- Never write real organisational detail into any file outside
-  `org-context/` (which is gitignored). Files under `scenarios/` must stay
-  genericised/fictional — this repository is open source.
+- Never write real organisational detail into a scenario under
+  `scenarios/` — that folder must stay genericised/fictional, since this
+  repository is open source. If the user wants to keep real detail rather
+  than genericise it, write the scenario to `scenarios-private/` instead
+  (see `scenarios-private/README.md`); both it and `org-context/` are
+  gitignored.
 - Validate the finished scenario and review its generated flowchart before
   considering the work done:
   ```bash

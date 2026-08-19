@@ -71,6 +71,13 @@ available to an AI assistant as either:
 Both just point to the same `docs/authoring-scenarios.md`, so the actual
 guidance only needs to be maintained in one place.
 
+If a scenario is built from real org detail and you want to keep that
+detail rather than genericise it, write it to `scenarios-private/`
+instead of `scenarios/` — see
+[`scenarios-private/README.md`](scenarios-private/README.md). It's
+gitignored the same way as `org-context/`, and the format and CLI usage
+are identical to public scenarios.
+
 ## Worked examples
 
 `scenarios/technical-memory-leak-oncall.yaml` is an 11-node technical-tier
