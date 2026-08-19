@@ -34,6 +34,12 @@ the authoring process changes; the wrappers should rarely need to change.
    echo a real past incident (more realistic, good for buy-in) or be
    deliberately novel (tests process rather than muscle memory from an
    incident people already remember).
+4. Check [`building-blocks/`](../building-blocks/) for a fragment that
+   matches the chosen theme (bad deploy, credential leak, third-party
+   outage) — starting from one saves writing the opening arc from scratch
+   and comes pre-validated. See `building-blocks/README.md` for how to
+   splice one in. Not every scenario has a matching block; that's fine,
+   draft from scratch in that case.
 
 ## Drafting process
 
@@ -45,9 +51,11 @@ the authoring process changes; the wrappers should rarely need to change.
 2. **Write a one-paragraph premise** before writing any nodes. If this
    doesn't clearly name what's being tested (a decision, a process gap, an
    ownership question), it's not specific enough yet — revisit it.
-3. **Sketch the branch structure before writing full inject text.** List
-   node titles and the key decision at each fork first, as a short
-   outline. Check the outline has:
+3. **Sketch the branch structure before writing full inject text**, or
+   start from a building block's nodes if one matched the theme (rename
+   its node ids first — see `building-blocks/README.md`). List node
+   titles and the key decision at each fork first, as a short outline.
+   Check the outline has:
    - at least one path that represents a strong/model response
    - at least one path where a plausible reasonable-sounding choice leads
      to a worse outcome, to make the cost of that choice concrete

@@ -78,6 +78,21 @@ instead of `scenarios/` — see
 gitignored the same way as `org-context/`, and the format and CLI usage
 are identical to public scenarios.
 
+## Building blocks
+
+[`building-blocks/`](building-blocks/) has reusable node-graph fragments —
+short opening arcs (a few nodes covering how an incident starts and the
+first decision point or two) that you can splice into a new scenario
+instead of writing the opening from scratch every time. Currently
+available: `bad-deploy.yaml`, `credential-leak.yaml`, and
+`third-party-outage.yaml`. See
+[`building-blocks/README.md`](building-blocks/README.md) for what each
+one covers and how to splice one in.
+
+These aren't runnable scenarios on their own — they're missing metadata
+and end at deliberate "grafting points" (nodes with no branches yet) for
+you to extend with your own audience-appropriate continuation.
+
 ## Worked examples
 
 `scenarios/technical-memory-leak-oncall.yaml` is an 11-node technical-tier
@@ -172,8 +187,3 @@ npm run eslint         # lint
 npm run format         # prettier --check
 npm test               # vitest run
 ```
-
-## Roadmap
-
-- A library of reusable scenario building blocks (generic bad-deploy,
-  credential-leak, third-party-outage templates) to mix and adapt

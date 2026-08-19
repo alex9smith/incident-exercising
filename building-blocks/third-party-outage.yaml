@@ -1,0 +1,124 @@
+# Building block: a critical third-party dependency degrades or fails
+#
+# Premise: a third-party service your product depends on (payment
+# processor, cloud provider, email/SMS provider, etc.) starts failing or
+# degrading. Early decisions are about confirming it's actually the third
+# party (not your own system) and deciding whether/how to communicate
+# something that's outside your control.
+#
+# Suggested audience range: technical (confirming third-party vs internal
+# fault, checking status pages, working around it) through management/exec
+# (extend `node-bb-3p-confirmed` with vendor-escalation, customer comms
+# about a third-party-caused outage, and contractual/SLA angles).
+#
+# Grafting points (nodes with no branches — extend these):
+#   - node-bb-3p-confirmed        — confirmed as a third-party issue, no
+#                                   workaround available yet; extend with
+#                                   comms/escalation/vendor-contact decisions
+#   - node-bb-3p-workaround-live  — a workaround/fallback is live; extend
+#                                   with a decision about whether/how to
+#                                   communicate a partial/degraded state
+#
+# Remember to rename these node ids before splicing into a scenario that
+# already has nodes with the same ids (e.g. if using more than one block).
+
+nodes:
+  - id: node-bb-3p-alert
+    title: Requests to a critical dependency start failing
+    inject: >
+      Errors start appearing for requests to a critical third-party
+      service your product depends on. It's not yet clear whether this is
+      a problem on their end or something on yours — your own systems
+      show no recent changes.
+    facilitator_notes: >
+      First fork: do participants check the vendor's public status page /
+      known channels before assuming it's their own system, or the
+      reverse? Given no recent internal changes, checking the third party
+      first is the stronger instinct, but note which the group reaches for.
+    branches:
+      - label: Check the third party's status page/support channels first
+        next: node-bb-3p-checking-vendor
+      - label: Assume it might be an internal issue and investigate your own systems first
+        next: node-bb-3p-checking-internal
+
+  - id: node-bb-3p-checking-internal
+    title: Internal investigation finds nothing
+    inject: >
+      A few minutes of investigating internal systems and recent changes
+      turns up nothing — no deploys, no config changes, nothing unusual on
+      your side. The failure rate to the third party is still climbing.
+    facilitator_notes: >
+      A believable but slightly slower path — time spent ruling out an
+      internal cause that a quick status-page check might have ruled out
+      faster. Not a hard failure, but good debrief material on
+      investigation ordering when there's an obvious external dependency
+      involved and no internal changes to explain a self-inflicted cause.
+    branches:
+      - label: Now check the third party's status page/support channels
+        next: node-bb-3p-checking-vendor
+
+  - id: node-bb-3p-checking-vendor
+    title: Third party confirms an issue on their end
+    inject: >
+      The third party's status page (or a response from their support
+      channel) confirms they're experiencing a service disruption
+      affecting the functionality your product depends on. They don't yet
+      have an estimated time to resolution.
+    facilitator_notes: >
+      Note whether the group treats "not our fault" as meaning "not our
+      problem to communicate about" — a common gap is assuming a
+      third-party-caused issue doesn't need the same communication
+      discipline as a self-inflicted one, when to your customers the
+      effect is the same either way.
+    branches:
+      - label: Look for an internal workaround/fallback while waiting on the vendor
+        next: node-bb-3p-workaround-check
+      - label: Wait for the vendor to resolve it, since there's nothing to investigate on your side
+        next: node-bb-3p-confirmed
+
+  - id: node-bb-3p-workaround-check
+    title: Checking for a workaround
+    inject: >
+      There may be a fallback path that avoids the failing third-party
+      call entirely (e.g. a cached/degraded response, an alternate
+      provider, queueing requests for retry later), but it hasn't been
+      used in production before and its own risk/side effects aren't
+      fully known.
+    facilitator_notes: >
+      Tests risk judgement under pressure: is the group willing to ship an
+      untested workaround to relieve a real, ongoing problem, and if so,
+      what checks would they want first? Neither "use it" nor "don't
+      risk it" is automatically right — the interesting part is whether
+      the trade-off gets discussed explicitly.
+    branches:
+      - label: Use the workaround now, accepting the risk of an unproven path
+        next: node-bb-3p-workaround-live
+      - label: Don't risk an untested workaround; wait on the vendor instead
+        next: node-bb-3p-confirmed
+
+  - id: node-bb-3p-confirmed
+    title: Confirmed third-party issue, no workaround in use
+    inject: >
+      The outage is confirmed as caused by the third party, with no
+      workaround currently in use. There's no estimated resolution time
+      from the vendor yet.
+    facilitator_notes: >
+      Grafting point — extend with what happens next for your audience:
+      whether/how this gets communicated to customers given it's outside
+      your control, whether the vendor relationship has an escalation
+      path being used, and at what point (if any) this becomes a
+      major-incident-level response despite the root cause being external.
+
+  - id: node-bb-3p-workaround-live
+    title: Workaround live, service partially restored
+    inject: >
+      The workaround is live and service is functioning again, though in
+      a degraded or different-behaviour mode compared to normal — for
+      example, slower responses, or a slightly different result than the
+      third party would have returned.
+    facilitator_notes: >
+      Grafting point — extend with a decision about communicating a
+      degraded-but-functioning state: is "it's working again" told to
+      customers, and if the workaround's behaviour differs even slightly
+      from normal, does that get flagged rather than presented as a full
+      fix?

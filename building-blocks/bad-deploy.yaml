@@ -1,0 +1,83 @@
+# Building block: bad deploy causes a rising error rate
+#
+# Premise: a routine deploy to some service is followed by a climbing
+# error rate. The first decision is the classic rollback-vs-investigate
+# fork; if investigation is chosen, the cause turns out to span more than
+# one team's service, forcing an ownership question before it can be
+# resolved.
+#
+# Suggested audience range: technical (stay in the debugging weeds and
+# extend `node-bb-deploy-rollback` / `node-bb-deploy-widening` with
+# specific technical steps) through management (extend the same grafting
+# points with coordination/comms/escalation decisions, as in
+# scenarios/management-bad-deploy-outage.yaml).
+#
+# Grafting points (nodes with no branches — extend these):
+#   - node-bb-deploy-rollback   — rollback chosen quickly; extend with
+#                                 comms/notification/verification steps
+#   - node-bb-deploy-widening   — investigation continues, cause now spans
+#                                 two services; extend with an ownership/
+#                                 cross-team coordination decision
+#
+# Remember to rename these node ids before splicing into a scenario that
+# already has nodes with the same ids (e.g. if using more than one block).
+
+nodes:
+  - id: node-bb-deploy-alert
+    title: Error rate climbing after a deploy
+    inject: >
+      An error rate alert fires shortly after a routine deploy went out.
+      The on-call engineer has acknowledged it and is starting to look at
+      logs. No customer complaints yet.
+    facilitator_notes: >
+      First fork: do participants ask "can we just roll back the recent
+      deploy?" early, before root cause is known — or do they wait for
+      investigation first? Neither is wrong, but rollback is usually cheap
+      and reversible and doesn't require knowing why it broke.
+    branches:
+      - label: Roll back the recent deploy now, before investigating further
+        next: node-bb-deploy-rollback
+      - label: Continue investigating before deciding on rollback
+        next: node-bb-deploy-investigate
+
+  - id: node-bb-deploy-investigate
+    title: Investigation continues, error rate still climbing
+    inject: >
+      A few minutes later, the error rate is higher and the errors appear
+      to be timeouts calling a downstream service — it's not yet clear if
+      that's caused by the deploy or a coincidental problem in the
+      downstream service itself. The first customer complaints start
+      arriving.
+    facilitator_notes: >
+      This is the point where "wait and see" starts to have a visible
+      cost. Note whether participants still consider rollback even though
+      root cause is now ambiguous between two services.
+    branches:
+      - label: Roll back the deploy now, even without full root cause confirmed
+        next: node-bb-deploy-rollback
+      - label: Pull in the owning team of the downstream service before deciding
+        next: node-bb-deploy-widening
+
+  - id: node-bb-deploy-rollback
+    title: Rollback in progress
+    inject: >
+      The recent deploy is being rolled back. It will take a few minutes
+      to complete and verify.
+    facilitator_notes: >
+      Grafting point — extend with what happens next for your audience:
+      what gets communicated, to whom, and on what timeline, and whether
+      this gets escalated/declared as a wider incident before or after
+      confirming the rollback actually fixed it.
+
+  - id: node-bb-deploy-widening
+    title: Two teams, no clear single owner yet
+    inject: >
+      The owning team for the downstream service joins and reports their
+      service looks healthy from their side, but is seeing unusual traffic
+      patterns from the service that was just deployed. Both teams are now
+      involved and error rate is still climbing.
+    facilitator_notes: >
+      Grafting point — extend with an ownership/coordination decision:
+      who's actually driving the response now that two teams are involved,
+      and does anyone step up to make the rollback call despite the
+      ambiguity?
