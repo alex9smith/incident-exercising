@@ -14,8 +14,11 @@ export interface FacilitateOptions {
 /**
  * Runs an interactive terminal walkthrough of a scenario: prints each
  * node's inject and facilitator notes, prompts for which branch the group
- * chose, and repeats until an ending is reached. Writes a JSON transcript
- * of the path taken to `transcriptDir` when done.
+ * chose, and repeats until an ending is reached. If the group did
+ * something not covered by any listed branch, the facilitator can record
+ * a free-text description and either jump to an existing node to keep
+ * going, or end the walkthrough there. Writes a JSON transcript of the
+ * path taken (including any deviation) to `transcriptDir` when done.
  *
  * Returns the path to the written transcript file.
  */
@@ -62,12 +65,27 @@ export async function facilitateRun(
       branches.forEach((branch, index) => {
         print(`  ${String(index + 1)}. ${branch.label}`);
       });
+      print(`  0. Something else (the group did something not listed above)`);
 
       const choiceIndex = await promptForChoice(
         lines,
         options.output,
         branches.length,
       );
+
+      if (choiceIndex === "deviate") {
+        const finished = await handleDeviation(
+          session,
+          lines,
+          print,
+          options.output,
+        );
+        if (finished) {
+          break;
+        }
+        continue;
+      }
+
       const nextNode = session.choose(choiceIndex);
       print(`\n-> ${nextNode.title}\n`);
     }
@@ -80,26 +98,88 @@ export async function facilitateRun(
   }
 }
 
+/**
+ * Prompts for a free-text description of what the group actually did,
+ * then asks whether to jump to an existing node or end the walkthrough
+ * there. Returns true if the walkthrough should stop (nothing more to
+ * print), false if it should continue from the node the session jumped to.
+ */
+async function handleDeviation(
+  session: RunSession,
+  lines: NodeJS.AsyncIterator<string>,
+  print: (text: string) => void,
+  output: NodeJS.WritableStream,
+): Promise<boolean> {
+  print("\nDescribe what the group actually decided (used in the transcript):");
+  const description = await promptForLine(lines, output);
+
+  print(
+    "\nJump to an existing node to keep going, or leave blank to end the walkthrough here.",
+  );
+  print(`Available node ids: ${session.allNodeIds.join(", ")}`);
+
+  for (;;) {
+    const answer = await promptForLine(lines, output, "Node id (or blank): ");
+    const trimmed = answer.trim();
+
+    if (trimmed === "") {
+      session.deviateTo(description);
+      print("\n(Walkthrough ended here due to a deviation.)\n");
+      return true;
+    }
+
+    if (session.allNodeIds.includes(trimmed)) {
+      const nextNode = session.deviateTo(description, trimmed);
+      if (nextNode) {
+        print(`\n-> ${nextNode.title} (resumed after a deviation)\n`);
+      }
+      return false;
+    }
+
+    print(`"${trimmed}" is not a known node id. Try again.`);
+  }
+}
+
+type ChoiceResult = number | "deviate";
+
 async function promptForChoice(
   lines: NodeJS.AsyncIterator<string>,
   output: NodeJS.WritableStream,
   optionCount: number,
-): Promise<number> {
+): Promise<ChoiceResult> {
   for (;;) {
-    output.write(`Choice (1-${String(optionCount)}): `);
+    output.write(`Choice (0-${String(optionCount)}): `);
     const { value, done } = await lines.next();
     if (done) {
       throw new Error("Input ended before a choice was made");
     }
 
-    const choice = Number.parseInt(value.trim(), 10);
+    const trimmed = value.trim();
+    if (trimmed === "0") {
+      return "deviate";
+    }
+
+    const choice = Number.parseInt(trimmed, 10);
     if (Number.isInteger(choice) && choice >= 1 && choice <= optionCount) {
       return choice - 1;
     }
     output.write(
-      `Please enter a number between 1 and ${String(optionCount)}.\n`,
+      `Please enter a number between 0 and ${String(optionCount)}.\n`,
     );
   }
+}
+
+async function promptForLine(
+  lines: NodeJS.AsyncIterator<string>,
+  output: NodeJS.WritableStream,
+  prompt = "> ",
+): Promise<string> {
+  output.write(prompt);
+  const { value, done } = await lines.next();
+  if (done) {
+    throw new Error("Input ended before a response was given");
+  }
+  return value.trim();
 }
 
 function printSummary(
@@ -108,7 +188,9 @@ function printSummary(
 ): void {
   print("=== Session summary ===");
   for (const step of summary.steps) {
-    if (step.chosenBranchLabel) {
+    if (step.deviationDescription) {
+      print(`${step.nodeTitle}\n  -> [deviation] ${step.deviationDescription}`);
+    } else if (step.chosenBranchLabel) {
       print(`${step.nodeTitle}\n  -> ${step.chosenBranchLabel}`);
     } else {
       print(`${step.nodeTitle} (ending)`);

@@ -103,4 +103,61 @@ describe("RunSession", () => {
       },
     ]);
   });
+
+  it("exposes all node ids in the scenario", () => {
+    const session = new RunSession(scenario(), fixedNow);
+    expect(session.allNodeIds).toEqual(["a", "b", "c"]);
+  });
+
+  it("ends the session when deviating with no target node", () => {
+    const session = new RunSession(scenario(), fixedNow);
+    const result = session.deviateTo("Group did something unplanned");
+    expect(result).toBeNull();
+    expect(session.isComplete).toBe(true);
+    // current node hasn't moved — still node "a", which has real branches
+    expect(session.current.id).toBe("a");
+  });
+
+  it("jumps to an existing node when deviating with a target node", () => {
+    const session = new RunSession(scenario(), fixedNow);
+    const result = session.deviateTo("Group escalated directly", "c");
+    expect(result?.id).toBe("c");
+    expect(session.current.id).toBe("c");
+    // reached a real ending node, so isComplete is true for that reason too
+    expect(session.isComplete).toBe(true);
+  });
+
+  it("throws when deviating to an unknown node id", () => {
+    const session = new RunSession(scenario(), fixedNow);
+    expect(() => session.deviateTo("desc", "nonexistent")).toThrow(
+      /Node "nonexistent" does not exist/,
+    );
+  });
+
+  it("records the deviation description in the summary and does not duplicate the step on finish", () => {
+    const session = new RunSession(scenario(), fixedNow);
+    session.deviateTo("Group called the vendor directly");
+    const summary = session.finish();
+
+    expect(summary.steps).toEqual([
+      {
+        nodeId: "a",
+        nodeTitle: "A",
+        enteredAt: "2026-01-01T00:00:00.000Z",
+        chosenBranchLabel: null,
+        deviationDescription: "Group called the vendor directly",
+      },
+    ]);
+  });
+
+  it("continues normally after resuming from a deviation into a node with branches", () => {
+    const session = new RunSession(scenario(), fixedNow);
+    session.deviateTo("Group jumped ahead", "b");
+    expect(session.isComplete).toBe(false);
+    session.choose(0); // b -> c
+    const summary = session.finish();
+
+    expect(summary.steps.map((step) => step.nodeId)).toEqual(["a", "b", "c"]);
+    expect(summary.steps[0]?.deviationDescription).toBe("Group jumped ahead");
+  });
 });

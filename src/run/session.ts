@@ -5,19 +5,26 @@ export interface VisitedStep {
   readonly enteredAt: string;
   /** The branch chosen to leave this node, or null if this was an ending. */
   readonly chosenBranch: Branch | null;
+  /**
+   * Set when the group did something not covered by any listed branch.
+   * `chosenBranch` is null in this case; this holds the facilitator's
+   * free-text description of what actually happened instead.
+   */
+  readonly deviationDescription?: string;
 }
 
 /**
  * Tracks progress through a scenario's branching graph during a facilitated
  * run. This holds no I/O — the CLI's run command drives it by calling
- * `choose`/`finish` in response to terminal input, which keeps the
- * branching/traversal logic unit-testable without mocking stdin.
+ * `choose`/`deviateTo`/`finish` in response to terminal input, which keeps
+ * the branching/traversal logic unit-testable without mocking stdin.
  */
 export class RunSession {
   private readonly nodesById: Map<string, ScenarioNode>;
   private readonly steps: VisitedStep[] = [];
   private currentNode: ScenarioNode;
   private readonly startedAt: string;
+  private finished = false;
 
   constructor(
     public readonly scenario: Scenario,
@@ -40,12 +47,23 @@ export class RunSession {
     return this.currentNode;
   }
 
+  /**
+   * True once the session has ended, either because the current node has
+   * no branches (a real ending), or because the group deviated and the
+   * facilitator chose to end the walkthrough there rather than jump to
+   * another node.
+   */
   get isComplete(): boolean {
-    return (this.currentNode.branches ?? []).length === 0;
+    return this.finished || (this.currentNode.branches ?? []).length === 0;
   }
 
   get history(): readonly VisitedStep[] {
     return this.steps;
+  }
+
+  /** Ids of every node in the scenario, for picking a node to jump to. */
+  get allNodeIds(): readonly string[] {
+    return this.scenario.nodes.map((node) => node.id);
   }
 
   /**
@@ -81,15 +99,51 @@ export class RunSession {
   }
 
   /**
-   * Finalises the session at the current (ending) node. Call once
-   * `isComplete` is true.
+   * Records that the group did something not covered by any listed
+   * branch. Pass `nextNodeId` to jump to an existing node and continue the
+   * walkthrough from there, or omit it to end the walkthrough at the
+   * current node. Throws if `nextNodeId` is given but doesn't exist.
    */
-  finish(): RunSummary {
+  deviateTo(description: string, nextNodeId?: string): ScenarioNode | null {
+    const nextNode = nextNodeId ? this.nodesById.get(nextNodeId) : undefined;
+    if (nextNodeId && !nextNode) {
+      throw new Error(`Node "${nextNodeId}" does not exist`);
+    }
+
     this.steps.push({
       node: this.currentNode,
       enteredAt: this.nowFn().toISOString(),
       chosenBranch: null,
+      deviationDescription: description,
     });
+
+    if (!nextNode) {
+      this.finished = true;
+      return null;
+    }
+
+    this.currentNode = nextNode;
+    return this.currentNode;
+  }
+
+  /**
+   * Finalises the session at the current node. Call once `isComplete` is
+   * true. Safe to call even if the last recorded step already covered the
+   * current node (a deviation with no further node) — does not push a
+   * duplicate step in that case.
+   */
+  finish(): RunSummary {
+    const lastStep = this.steps[this.steps.length - 1];
+    const alreadyRecordedCurrentNode =
+      this.finished && lastStep?.node.id === this.currentNode.id;
+
+    if (!alreadyRecordedCurrentNode) {
+      this.steps.push({
+        node: this.currentNode,
+        enteredAt: this.nowFn().toISOString(),
+        chosenBranch: null,
+      });
+    }
 
     return {
       scenarioId: this.scenario.id,
@@ -101,6 +155,9 @@ export class RunSession {
         nodeTitle: step.node.title,
         enteredAt: step.enteredAt,
         chosenBranchLabel: step.chosenBranch?.label ?? null,
+        ...(step.deviationDescription !== undefined
+          ? { deviationDescription: step.deviationDescription }
+          : {}),
       })),
     };
   }
@@ -111,6 +168,7 @@ export interface RunSummaryStep {
   readonly nodeTitle: string;
   readonly enteredAt: string;
   readonly chosenBranchLabel: string | null;
+  readonly deviationDescription?: string;
 }
 
 export interface RunSummary {

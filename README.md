@@ -131,9 +131,19 @@ them as numbered options and waits for you to type the number matching
 what the group actually decided. This continues until an ending is
 reached, at which point it prints a summary of the path taken.
 
+If the group does something not covered by any listed branch, choose `0`
+("Something else") instead. You'll be asked to describe what actually
+happened in a sentence or two, then either give the id of an existing node
+to jump to and keep the walkthrough going, or leave it blank to end the
+walkthrough there. Either way, the deviation and its description are
+recorded in the transcript — this is useful in its own right: if the same
+node keeps producing deviations across runs, that's a sign the scenario is
+missing a branch it should have.
+
 A JSON transcript of the session (scenario id, start/finish times, and
-each node visited with the branch chosen) is written to `./transcripts/`
-by default. Use `--transcript-dir <dir>` to change where it's saved:
+each node visited with the branch chosen or the deviation description) is
+written to `./transcripts/` by default. Use `--transcript-dir <dir>` to
+change where it's saved:
 
 ```bash
 npm run cli -- run scenarios/exec-ransomware-crisis.yaml --transcript-dir ./transcripts/2026-08-19-exec-drill
