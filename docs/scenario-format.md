@@ -5,7 +5,7 @@ designed to be authored and reviewed as plain text (readable in a diff,
 editable without special tooling) and to drive two things:
 
 - a Mermaid flowchart of the branching structure (`incident-exercising flowchart`)
-- (later) a terminal-based facilitator run-through (`incident-exercising run`)
+- a terminal-based facilitator run-through (`incident-exercising run`)
 
 Nothing in the format is tied to a specific delivery medium — the same file
 works whether you're running the session over video call, in a room, or
@@ -55,7 +55,7 @@ nodes:
 | `start`            | yes      | Id of the first node in the graph                                     |
 | `nodes`            | yes      | The branching graph (see below)                                       |
 
-`audience` levels, from the original brief:
+`audience` levels:
 
 - `technical` — an engineering/on-call team debugging a live technical problem
 - `management` — team leads / mid-management coordinating a response

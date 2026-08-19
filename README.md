@@ -46,6 +46,31 @@ An audience level (`technical`, `management`, `exec`) tags who the scenario
 is aimed at. The `scenarios/` directory has one worked example per tier so
 far (`exec` and `management`).
 
+## Writing scenarios for your own organisation
+
+`org-context/` is a gitignored folder for private detail about your
+product, teams and organisation — see
+[`org-context/README.md`](org-context/README.md) and copy
+[`org-context/org-context.template.md`](org-context/org-context.template.md)
+to get started. Nothing in that folder (besides the README, `.gitignore`,
+and the blank template) is ever committed, so it's safe to put real system
+names, team structure, supplier details and known weak points there.
+
+[`docs/authoring-scenarios.md`](docs/authoring-scenarios.md) describes the
+process for turning that context into a new scenario file — checking
+`org-context/` first, keeping anything under `scenarios/` genericised
+since this repo is open source, and validating the result. This is
+available to an AI assistant as either:
+
+- a Kiro steering file: `.kiro/steering/scenario-authoring.md` (manual
+  inclusion — reference it with `#scenario-authoring`)
+- a Claude Code skill: `.claude/skills/author-scenario/SKILL.md` (invoke
+  directly with `/author-scenario`, or let Claude pick it up automatically
+  when you ask it to draft a scenario)
+
+Both just point to the same `docs/authoring-scenarios.md`, so the actual
+guidance only needs to be maintained in one place.
+
 ## Worked examples
 
 `scenarios/exec-ransomware-crisis.yaml` is a 9-node exec crisis scenario
@@ -128,5 +153,3 @@ npm test               # vitest run
 - Additional worked examples at the `technical` audience level
 - A library of reusable scenario building blocks (generic bad-deploy,
   credential-leak, third-party-outage templates) to mix and adapt
-- Org-specific context (teams, systems, past incidents) to speed up
-  authoring new scenarios tailored to your own organisation

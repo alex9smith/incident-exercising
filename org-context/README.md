@@ -28,7 +28,10 @@ When authoring a new scenario, provide the relevant context file(s) to
 the assistant alongside the scenario schema
 ([`docs/scenario-format.md`](../docs/scenario-format.md)) so injects,
 role names, and failure modes reflect your actual systems and org
-structure instead of generic placeholders.
+structure instead of generic placeholders. See
+[`docs/authoring-scenarios.md`](../docs/authoring-scenarios.md) for the
+authoring process this drives — available as a Kiro steering file
+(`#scenario-authoring`) or a Claude Code skill (`/author-scenario`).
 
 ## Before publishing or sharing anything
 
