@@ -1,0 +1,193 @@
+id: exec-ransomware-crisis
+title: "Ransomware crisis: customer data exposed"
+audience: exec
+duration_minutes: 90
+summary: >
+  A ransomware group's leak site names your company and claims to have
+  exfiltrated 2.3 million customer records, with a 72-hour countdown to
+  publication unless a ransom is paid. Participants must decide how to
+  respond across containment, internal escalation, comms, legal and
+  regulatory dimensions, without knowing yet whether the claim is true.
+objectives:
+  - Exercise the crisis communications decision tree (internal, customer, press, regulator)
+  - Test escalation and major-incident declaration criteria under uncertainty
+  - Clarify who has authority to approve customer-facing statements and to authorise/refuse contact with the attacker
+  - Surface gaps in the ransom-payment decision process and legal/regulatory notification timelines
+category: security
+roles:
+  - name: Incident Commander
+    description: Chairs the exercise and owns the overall response decision
+  - name: Comms Lead
+    description: Owns internal and external messaging, including press and social
+  - name: Legal / DPO
+    description: Advises on regulatory disclosure obligations and law enforcement contact
+  - name: CISO / Security Lead
+    description: Owns technical verification, containment and attacker engagement decisions
+start: node-report
+nodes:
+  - id: node-report
+    title: Initial report
+    inject: >
+      09:14. A ransomware group's leak site lists your company by name,
+      claiming to hold 2.3 million customer records, with a countdown
+      showing 72 hours until publication unless a ransom is paid. A
+      junior analyst spotted this via an open-source threat intel feed
+      and has escalated directly to you. No internal alerts have fired.
+    facilitator_notes: >
+      Watch for: do they name a single owner for verification, or does the
+      group debate in the abstract? Do they consider that this might be a
+      hoax/copycat claim with no real breach? A strong response assigns an
+      owner and a time-boxed verification step rather than either dismissing
+      it or over-reacting immediately.
+    branches:
+      - label: Declare a major incident immediately and stand up the crisis team
+        next: node-major-incident-declared
+      - label: Ask the security team to verify the claim before declaring anything
+        next: node-verification
+
+  - id: node-verification
+    title: Verification in progress
+    inject: >
+      09:45. Security have pulled logs and found evidence of unusual
+      data access from an internal service account over the past 5 days,
+      consistent with the leak site's claims, but cannot yet confirm the
+      volume or exact records affected. Verification will take several
+      more hours to complete properly. Meanwhile, a trade press journalist
+      has emailed your press office asking "is it true you've been
+      hacked?", referencing the leak site.
+    facilitator_notes: >
+      This is the point where "wait for full certainty" becomes untenable.
+      Good groups recognise that a credible technical indicator plus press
+      interest is enough to declare, even without full scope confirmed.
+      Note whether Legal/DPO raises the 72-hour UK GDPR/ICO notification
+      clock starting from awareness of a likely breach, not from confirmation.
+    branches:
+      - label: Declare a major incident now, on the strength of the technical indicator
+        next: node-major-incident-declared
+      - label: Hold off declaring and tell the journalist "no comment" while verification continues
+        next: node-held-off-too-long
+
+  - id: node-held-off-too-long
+    title: Story breaks without a company statement
+    inject: >
+      11:30. The trade press has published a short piece: "Company X
+      breach claims surface online; company declines to comment."
+      It is picked up and amplified on social media within the hour.
+      Customers are posting screenshots of the leak site countdown.
+      Your switchboard and support inboxes are being flooded with
+      queries you have no approved answer for.
+    facilitator_notes: >
+      This is a deliberate "cost of delay" ending. Use the debrief to ask:
+      what would a holding statement issued at 09:45 have looked like, and
+      would it have changed this outcome? This path exists to make the
+      cost of silence concrete rather than abstract.
+
+  - id: node-major-incident-declared
+    title: Major incident declared
+    inject: >
+      The crisis team is stood up: Incident Commander, Comms Lead,
+      Legal/DPO and CISO are on the call. You have to decide what to do
+      about the ransom demand itself — the leak site provides a contact
+      channel and payment deadline — while comms and legal work in parallel.
+    facilitator_notes: >
+      This is the central fork of the scenario. Push the group to be
+      explicit: who has authority to approve or refuse contact with the
+      attacker? Is paying even being considered, and who would need to
+      approve that (often board-level, and may have sanctions/legal
+      implications if the actor is a sanctioned entity)? "We would never
+      pay" is a valid answer but should be a stated position, not silence.
+    branches:
+      - label: Engage a specialist ransomware negotiation/response firm to open dialogue, with no commitment to pay
+        next: node-negotiator-engaged
+      - label: Refuse any contact with the attacker and proceed on the assumption data will be published
+        next: node-no-contact
+      - label: Focus internally on containment and defer any attacker engagement decision
+        next: node-contact-decision-deferred
+
+  - id: node-contact-decision-deferred
+    title: Decision deferred, deadline approaches
+    inject: >
+      36 hours later, the ransom deadline is approaching and no decision
+      on attacker contact has been made — it fell between teams. Legal
+      is now asking urgently whether "no response" itself has legal
+      implications given the countdown is public. The board wants an
+      answer today.
+    facilitator_notes: >
+      Deliberately punishes indecision. Good debrief question: what
+      process would have forced this decision to be made explicitly and
+      quickly rather than by default? This is often a RACI/ownership gap
+      rather than a technical one.
+    branches:
+      - label: Make the call now — refuse contact and prepare for publication
+        next: node-no-contact
+      - label: Make the call now — engage a specialist firm despite the lost time
+        next: node-negotiator-engaged
+
+  - id: node-negotiator-engaged
+    title: Specialist firm engaged
+    inject: >
+      A specialist incident response/negotiation firm makes contact with
+      the attacker to buy time and gather intelligence, explicitly without
+      authorising payment. The attacker responds aggressively, lowers the
+      deadline to 24 hours, and threatens to contact affected customers
+      directly. Meanwhile, containment work confirms the actual scope:
+      340,000 records affected (names, emails, hashed passwords), not 2.3M.
+    facilitator_notes: >
+      Tests whether the group updates its public messaging once real scope
+      is known, and whether they let the attacker's threats dictate their
+      timeline. A common failure is anchoring on the attacker's numbers or
+      deadline rather than the company's own verified facts and process.
+    branches:
+      - label: Proceed to public disclosure now with the verified (lower) scope, on your own timeline
+        next: node-public-disclosure
+      - label: Delay any public statement further, hoping to resolve via the negotiator first
+        next: node-delay-backfires
+
+  - id: node-no-contact
+    title: No attacker contact, proceeding to disclosure
+    inject: >
+      With no attacker engagement, the team proceeds on the working
+      assumption that some data will be published. Containment confirms
+      340,000 records affected. The question now is disclosure: to
+      customers, to the ICO/regulators, and publicly.
+    facilitator_notes: >
+      Same disclosure fork as the negotiator path — useful for comparing in
+      debrief whether the attacker-contact decision actually changed the
+      disclosure outcome, or whether it was a separate axis entirely.
+    branches:
+      - label: Disclose proactively to customers and regulators before any data is published
+        next: node-public-disclosure
+      - label: Wait until data is actually published before saying anything
+        next: node-delay-backfires
+
+  - id: node-delay-backfires
+    title: Attacker publishes first
+    inject: >
+      The attacker publishes a sample of records on the leak site to
+      pressure payment/response. This is now picked up by national press.
+      You are disclosing reactively, after the fact, rather than getting
+      ahead of the story. Customers are finding out from news outlets
+      before hearing from you directly.
+    facilitator_notes: >
+      A harsher version of "held off too long" — same lesson, later and
+      more damaging. Good debrief: what internal trigger should force
+      disclosure to happen before external events force your hand?
+
+  - id: node-public-disclosure
+    title: Proactive public disclosure
+    inject: >
+      You disclose to affected customers, notify the ICO within the
+      required timeframe, and issue a public statement with verified
+      facts (340,000 records, what data types, what you're doing about
+      it). Trade and national press coverage is largely factual rather
+      than speculative. Customer support volumes are high but manageable
+      because people are being told directly rather than finding out
+      elsewhere.
+    facilitator_notes: >
+      This is the strongest ending in the scenario, useful as the
+      reference point in debrief: which decisions earlier in the session
+      determined whether the group reached this outcome versus one of the
+      "backfires" endings? Ask what made getting here possible — likely a
+      combination of early declaration, clear ownership of the
+      contact/payment decision, and disclosing on the company's own
+      verified facts rather than the attacker's terms.

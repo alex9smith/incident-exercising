@@ -1,0 +1,44 @@
+{
+  "name": "incident-exercising",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24.18.1 <25"
+  },
+  "bin": {
+    "incident-exercising": "./dist/cli.js"
+  },
+  "dependencies": {
+    "valibot": "^1.4.2",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@eslint/compat": "^2.1.0",
+    "@eslint/js": "^10.0.1",
+    "@tsconfig/node24": "^24.0.5",
+    "@tsconfig/strictest": "^2.0.8",
+    "@types/node": "^24.13.3",
+    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/eslint-plugin": "^1.6.27",
+    "eslint": "^10.8.1",
+    "eslint-plugin-n": "^18.3.0",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "check-types": "tsc --noEmit",
+    "eslint": "eslint . --report-unused-disable-directives --cache --max-warnings 0",
+    "eslint:fix": "eslint . --fix --report-unused-disable-directives --cache --max-warnings 0",
+    "format": "prettier . --check",
+    "format:fix": "prettier . --write",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "cli": "tsx src/cli.ts"
+  }
+}
