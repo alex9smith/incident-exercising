@@ -1,0 +1,8 @@
+# Everything in this folder is ignored by default except this file, the
+# README explaining what belongs here, and the blank template. Real org
+# context files (based on the template) must never be committed to a
+# public repo.
+*
+!.gitignore
+!README.md
+!org-context.template.md
