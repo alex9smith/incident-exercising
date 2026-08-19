@@ -1,0 +1,228 @@
+id: technical-memory-leak-oncall
+title: "On-call: creeping latency and a mystery restart loop"
+audience: technical
+duration_minutes: 45
+summary: >
+  A PagerDuty alert fires for elevated p99 latency on the orders API
+  shortly after a routine dependency bump shipped. The on-call engineer
+  has to work the problem using only the observability tooling and
+  runbooks that actually exist today — this scenario tests debugging
+  process and runbook usage, not whether the engineer can guess the
+  right root cause. Can run with a single participant playing the
+  on-call engineer, or as a pair with a second person playing the
+  secondary on-call who only appears once paged.
+objectives:
+  - Test whether the on-call engineer uses the runbook/dashboards that actually exist, or works from memory
+  - Exercise the decision of when to escalate vs continue investigating solo
+  - Surface whether recent-deploy correlation is checked early or discovered late
+  - Check understanding of the difference between a symptom (latency, restarts) and root cause (memory growth)
+category: availability
+roles:
+  - name: On-call Engineer
+    description: Primary investigator, has access to dashboards, logs and the deploy pipeline
+  - name: Secondary On-call / Team Lead
+    description: Available to be paged in if the primary escalates
+start: node-alert
+nodes:
+  - id: node-alert
+    title: p99 latency alert fires
+    inject: >
+      02:41. PagerDuty: "orders-api p99 latency > 2000ms for 5 minutes
+      (threshold: 800ms)". You are the on-call engineer. The alert links
+      to the orders-api Grafana dashboard. You have runbook access and
+      shell/read access to the relevant AWS accounts. Nothing else has
+      paged.
+    facilitator_notes: >
+      First branch point: does the engineer open the dashboard the alert
+      actually links to, or start from a general "check everything"
+      instinct? Also note whether they check if this is a known/expected
+      pattern (e.g. traffic spike) before assuming something is broken.
+    branches:
+      - label: Open the linked Grafana dashboard and look at what's actually elevated
+        next: node-dashboard-review
+      - label: SSH into an orders-api host directly to check top/logs first
+        next: node-ssh-first
+
+  - id: node-ssh-first
+    title: On a host, but no dashboard context yet
+    inject: >
+      02:44. You're on orders-api-worker-07. `top` shows memory usage at
+      91% and climbing slowly. You don't yet know if this host is
+      representative — is every instance like this, or just this one?
+      You also don't know if 91% is normal for this time of day.
+    facilitator_notes: >
+      A believable but weaker path: jumping to a host before establishing
+      fleet-wide context. Not wrong, but note whether they now go back to
+      the dashboard to check if this is fleet-wide, or keep digging on
+      this one host in isolation.
+    branches:
+      - label: Go to the dashboard now to check if this is fleet-wide or one host
+        next: node-dashboard-review
+      - label: Keep investigating this host directly (heap dump, process inspection)
+        next: node-tunnel-vision
+
+  - id: node-tunnel-vision
+    title: Deep on one host, losing the bigger picture
+    inject: >
+      02:52. You've spent 8 minutes gathering detailed diagnostics from
+      orders-api-worker-07 alone. Latency alert is still firing. You
+      still don't know if this is one bad host or all of them, whether
+      it correlates with a deploy, or whether restarts are happening
+      fleet-wide.
+    facilitator_notes: >
+      A soft "cost of a narrow approach" node, not a hard failure — some
+      real debugging value happened here, but 8 minutes passed without
+      answering the more basic "how widespread is this" question. Good
+      debrief material on investigation ordering: fleet-wide signal first,
+      then drill into a specific host once you know it's representative.
+    branches:
+      - label: Step back and check the fleet-wide dashboard now
+        next: node-dashboard-review
+
+  - id: node-dashboard-review
+    title: Dashboard shows a clear pattern
+    inject: >
+      The orders-api dashboard shows memory usage climbing steadily across
+      all 6 instances over the last 90 minutes, with each instance
+      restarting (OOM-killed) roughly every 30 minutes once it hits the
+      memory limit — visible as a sawtooth pattern. Latency spikes
+      correlate with the restarts. The pattern started roughly 90 minutes
+      ago.
+    facilitator_notes: >
+      This is the "aha" moment — the shape of the graph (sawtooth) is the
+      key technical signal. Good engineers will now ask "what happened ~90
+      minutes ago?" Watch whether they check the deploy history
+      proactively or need it prompted.
+    branches:
+      - label: Check the deploy pipeline for anything that shipped around 90 minutes ago
+        next: node-deploy-found
+      - label: Restart all instances manually now to relieve the immediate symptom, investigate cause after
+        next: node-restart-without-diagnosis
+
+  - id: node-restart-without-diagnosis
+    title: Symptom relieved, cause unknown
+    inject: >
+      03:05. You've manually restarted all 6 instances. Latency returns
+      to normal immediately. The alert clears. You haven't looked at what
+      caused the memory growth, and the same bad code/config is still
+      running — it will start climbing again as soon as traffic resumes.
+    facilitator_notes: >
+      A believable real-world move (restart to buy time) that becomes a
+      trap if treated as the end of the investigation rather than a
+      stopgap. Good debrief: is restarting-to-relieve-symptoms an
+      acceptable step, provided it's explicitly followed by root cause
+      work rather than mistaken for resolution?
+    branches:
+      - label: Now check the deploy pipeline, since the underlying cause is still unaddressed
+        next: node-deploy-found
+      - label: Close the alert as resolved and move on
+        next: node-false-resolution
+
+  - id: node-false-resolution
+    title: Closed as resolved, recurs later
+    inject: >
+      04:20. The alert fires again. Memory is climbing the same way. This
+      time there's no easy "first response" — you're re-diagnosing from
+      scratch, an hour later, more tired, having lost the context you had
+      the first time around.
+    facilitator_notes: >
+      A deliberate weak ending: relieving a symptom and calling it done
+      cost more total time and context than investigating properly the
+      first time. Good debrief: what would have made "this isn't actually
+      fixed yet" obvious before closing the alert?
+
+  - id: node-deploy-found
+    title: A dependency bump shipped ~90 minutes ago
+    inject: >
+      The deploy log shows a routine dependency bump (an HTTP client
+      library, patch version) auto-merged and deployed 95 minutes ago via
+      the usual CI pipeline — no manual review flagged it as risky, and
+      it passed all existing tests. Nothing else has shipped since.
+    facilitator_notes: >
+      Tests whether the engineer treats "it's just a patch bump, probably
+      fine" as a reason to look elsewhere, or correctly treats the timing
+      correlation as strong evidence regardless of how small the change
+      looked. This is also a good moment to note: existing tests passing
+      didn't catch this, which is itself useful information for the
+      post-incident write-up.
+    branches:
+      - label: Roll back the dependency bump and monitor
+        next: node-rollback-success
+      - label: Assume a patch-version bump is unlikely to be the cause and keep looking elsewhere
+        next: node-wrong-trail
+
+  - id: node-wrong-trail
+    title: Chasing an unrelated lead
+    inject: >
+      03:20. You've spent 20 minutes investigating a recent increase in
+      order volume as a possible cause, without finding anything
+      conclusive — traffic is up slightly but not dramatically. The
+      memory/restart pattern continues unchanged. The deploy from 95
+      minutes ago (now over two hours ago) is still the strongest
+      unexplored correlation.
+    facilitator_notes: >
+      A deliberate "chasing a plausible-sounding but weaker signal" path.
+      Good debrief: correlation strength matters — a change that landed
+      exactly when the problem started is a stronger lead than a
+      loosely-timed traffic increase, even if the traffic increase feels
+      like a more "interesting" story.
+    branches:
+      - label: Return to the dependency bump and roll it back
+        next: node-rollback-success
+      - label: Escalate to secondary on-call, still without a clear lead
+        next: node-escalation-unfocused
+
+  - id: node-escalation-unfocused
+    title: Escalated, but without a clear question
+    inject: >
+      03:45. Secondary on-call joins. You explain the symptoms (latency,
+      OOM restarts) but don't have a specific hypothesis to hand off —
+      the dependency bump correlation was noted over an hour ago but not
+      pursued. The secondary starts by asking "has anything been deployed
+      recently?"
+    facilitator_notes: >
+      A realistic and slightly uncomfortable ending: escalation happened,
+      but without carrying forward the most useful lead already found.
+      Good debrief: escalating is right, but what should be included when
+      escalating (symptoms AND leads already explored, even ones not yet
+      acted on) to avoid re-doing work?
+    branches:
+      - label: Together, return to the dependency bump lead and roll it back
+        next: node-rollback-success
+
+  - id: node-rollback-success
+    title: Rollback resolves the memory growth
+    inject: >
+      The dependency bump is rolled back and instances are restarted.
+      Memory usage stabilises and stays flat over the next 30 minutes of
+      observation — no sawtooth pattern. Latency stays within normal
+      range. A quick look at the dependency's changelog shows a known
+      connection-pooling change in that patch version, consistent with a
+      slow leak under sustained load.
+    facilitator_notes: >
+      The strongest ending. Good debrief prompts: how long from alert to
+      correct rollback, and what would have shortened that? Was the
+      deploy-correlation check something the engineer did automatically,
+      or did it need to be prompted — and if the latter, does the runbook
+      need a line making "check recent deploys" an explicit early step
+      rather than something people have to remember?
+    branches:
+      - label: Write up findings and close out
+        next: node-good-writeup
+
+  - id: node-good-writeup
+    title: Incident closed with a clear write-up
+    inject: >
+      You write up: symptom (p99 latency, periodic OOM restarts),
+      timeline, root cause (dependency patch bump introducing a
+      connection-pool leak), fix (rollback), and a follow-up action
+      (pin the dependency and add a memory-growth alert with a tighter
+      threshold so this is caught before it reaches OOM next time).
+    facilitator_notes: >
+      Use this to close the session and move to debrief. Good discussion
+      prompts: did the runbook actually help, or was it bypassed/ignored —
+      and if bypassed, was that because it's out of date? Would a
+      memory-growth-rate alert (rather than only a restart/latency alert)
+      have caught this earlier, before user-facing latency was affected?
+      Is "check recent deploys" written down anywhere as a standard first
+      step, or does every on-call engineer have to know to do it?

@@ -43,8 +43,8 @@ subsequent nodes — so a single scenario file can capture several distinct
 paths through an incident, including different quality of response.
 
 An audience level (`technical`, `management`, `exec`) tags who the scenario
-is aimed at. The `scenarios/` directory has one worked example per tier so
-far (`exec` and `management`).
+is aimed at. The `scenarios/` directory has one worked example per tier
+(`technical`, `management`, `exec`).
 
 ## Writing scenarios for your own organisation
 
@@ -73,12 +73,12 @@ guidance only needs to be maintained in one place.
 
 ## Worked examples
 
-`scenarios/exec-ransomware-crisis.yaml` is a 9-node exec crisis scenario
-covering a ransomware/data-leak claim: verification under uncertainty,
-major incident declaration, attacker contact/payment decisions, and the
-comms/regulatory disclosure fork. It has three distinct endings reflecting
-different response quality, intended as discussion material in the
-debrief.
+`scenarios/technical-memory-leak-oncall.yaml` is an 11-node technical-tier
+scenario for a single on-call engineer (or a pair): a p99 latency alert
+caused by a slow memory leak in a dependency bump. It tests debugging
+process — using the dashboard/runbook that actually exists, correlating
+against recent deploys, and not mistaking a symptom fix (manual restart)
+for a root-cause fix — rather than crisis coordination or comms.
 
 `scenarios/management-bad-deploy-outage.yaml` is an 8-node management-tier
 scenario covering a bad deploy causing a rising checkout error rate: the
@@ -87,11 +87,19 @@ two services, and when/how to bring in Support and senior management. It
 has two endings that converge on the same resolution but differ in whether
 comms happened proactively or not.
 
-Generate a flowchart for either:
+`scenarios/exec-ransomware-crisis.yaml` is a 9-node exec crisis scenario
+covering a ransomware/data-leak claim: verification under uncertainty,
+major incident declaration, attacker contact/payment decisions, and the
+comms/regulatory disclosure fork. It has three distinct endings reflecting
+different response quality, intended as discussion material in the
+debrief.
+
+Generate a flowchart for any of them:
 
 ```bash
-npm run cli -- flowchart scenarios/exec-ransomware-crisis.yaml
+npm run cli -- flowchart scenarios/technical-memory-leak-oncall.yaml
 npm run cli -- flowchart scenarios/management-bad-deploy-outage.yaml
+npm run cli -- flowchart scenarios/exec-ransomware-crisis.yaml
 ```
 
 Paste the output into a markdown file or viewer that renders Mermaid
@@ -150,6 +158,5 @@ npm test               # vitest run
 
 ## Roadmap
 
-- Additional worked examples at the `technical` audience level
 - A library of reusable scenario building blocks (generic bad-deploy,
   credential-leak, third-party-outage templates) to mix and adapt
