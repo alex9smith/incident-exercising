@@ -156,6 +156,22 @@ recorded in the transcript — this is useful in its own right: if the same
 node keeps producing deviations across runs, that's a sign the scenario is
 missing a branch it should have.
 
+If a node sets `planned_minutes` (see
+[`docs/scenario-format.md`](docs/scenario-format.md)), `run` prints that
+budget before the inject, and how long was actually spent against it once
+the group moves on — a lightweight facilitation aid for keeping a session
+on schedule, without a live-ticking countdown:
+
+```
+[planned time for this node: 5m]
+...
+[spent 8m — 3m over the 5m budget]
+```
+
+If any node in the scenario had a budget set, a `=== Pacing ===` summary
+is printed at the end totalling planned vs. actual time across just those
+nodes.
+
 A JSON transcript of the session (scenario id, start/finish times, and
 each node visited with the branch chosen or the deviation description) is
 written to `./transcripts/` by default. Use `--transcript-dir <dir>` to

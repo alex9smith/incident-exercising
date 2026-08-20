@@ -42,6 +42,18 @@ export const NodeSchema = v.object({
       v.minValue(0, "elapsed_minutes must not be negative"),
     ),
   ),
+  /**
+   * Real (wall-clock) minutes the facilitator plans to spend discussing
+   * this node before the group moves on. Optional — unset means no
+   * budget is tracked for that node. Used by `run` to show a target and,
+   * once the group moves on, how the actual time spent compared. This is
+   * a live-facilitation aid, separate from `elapsed_minutes` (the
+   * scenario's fictional in-story clock) and from the real `enteredAt`
+   * timestamps already recorded in a transcript.
+   */
+  planned_minutes: v.optional(
+    v.pipe(v.number(), v.minValue(0, "planned_minutes must not be negative")),
+  ),
   branches: v.optional(v.array(BranchSchema)),
 });
 

@@ -93,6 +93,7 @@ timeline, so the same scenario file can support divergent paths.
 | `inject`            | yes      | The information revealed to participants at this point                                                                         |
 | `facilitator_notes` | no       | Guidance for the person running the session: what to watch for, prompts to nudge discussion, what a strong response looks like |
 | `elapsed_minutes`   | no       | Minutes since the scenario's fictional start, at the point this inject is revealed (see below)                                 |
+| `planned_minutes`   | no       | Real minutes the facilitator plans to spend discussing this node before moving on (see below)                                  |
 | `branches`          | no       | List of possible participant decisions leading elsewhere. Omit for a terminal node (the exercise/path ends here)               |
 
 Each entry in `branches` has:
@@ -145,6 +146,55 @@ order as a scenario is edited — before it reaches a session.
 This field doesn't drive live facilitation (there's no timer in `run`);
 it's for authoring-time consistency checking now, and is intended to
 support a future chronological/MSEL-style export of a scenario's injects.
+
+### `planned_minutes`: a real-time facilitation budget
+
+Separate from `elapsed_minutes`, `planned_minutes` sets a real (wall-clock)
+time budget for a node — how long you expect the group to actually spend
+discussing it during the session, not how much fictional time has passed
+in the story:
+
+```yaml
+- id: node-alert
+  title: Error rate climbing
+  planned_minutes: 5
+  inject: >
+    14:02. Checkout error rate has climbed from a baseline of 0.2% to 6%...
+  branches:
+    - label: Roll back the deploy now
+      next: node-rollback
+```
+
+It's optional, and only nodes you choose to budget need it. When `run`
+displays a node with `planned_minutes` set, it prints the budget up front:
+
+```
+[planned time for this node: 5m]
+```
+
+Once the group moves on from that node, `run` prints how long was actually
+spent compared to the budget:
+
+```
+[spent 8m — 3m over the 5m budget]
+```
+
+At the end of the session, if any node had a budget, a pacing summary
+totals planned vs. actual time across just the budgeted nodes:
+
+```
+=== Pacing ===
+Planned: 7m | Actual: 16m
+9m over budget overall.
+```
+
+This is a live-facilitation aid, not a scenario-analysis one — there's no
+live-updating countdown while the group is mid-discussion (that would need
+polling/redrawing the terminal, which doesn't work well when `run`'s
+output is a log rather than an interactive display, e.g. when piped or
+screen-shared). The budget and outcome are shown at the two points that
+matter for keeping a session on schedule: before a node starts, and right
+after the group moves past it.
 
 ## Validation rules
 

@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { Scenario } from "../scenario/schema.ts";
+import type { Scenario, ScenarioNode } from "../scenario/schema.ts";
 import { RunSession, type RunSummary } from "./session.ts";
 
 export interface FacilitateOptions {
@@ -9,6 +9,12 @@ export interface FacilitateOptions {
   readonly output: NodeJS.WritableStream;
   /** Directory to write the JSON transcript to once the run finishes. */
   readonly transcriptDir: string;
+  /**
+   * Clock used to time how long the group actually spends at each node,
+   * for the planned-vs-actual budget display. Defaults to the real clock;
+   * tests can inject a fake one for deterministic duration assertions.
+   */
+  readonly now?: () => Date;
 }
 
 /**
@@ -26,7 +32,8 @@ export async function facilitateRun(
   scenario: Scenario,
   options: FacilitateOptions,
 ): Promise<string> {
-  const session = new RunSession(scenario);
+  const now = options.now ?? (() => new Date());
+  const session = new RunSession(scenario, now);
   const rl = createInterface({ input: options.input });
   // readline's promise-based `question()` can silently fail to resolve on
   // subsequent calls when input is a non-TTY stream (e.g. piped input in
@@ -39,6 +46,9 @@ export async function facilitateRun(
     options.output.write(`${text}\n`);
   };
 
+  let plannedMinutesSoFar = 0;
+  let actualMinutesSoFar = 0;
+
   try {
     print(`\n=== ${scenario.title} ===`);
     print(
@@ -47,12 +57,19 @@ export async function facilitateRun(
 
     for (;;) {
       const node = session.current;
+      const nodeEnteredAt = now();
       print(`--- ${node.title} ---`);
       print(node.inject.trim());
 
       if (node.facilitator_notes) {
         print(`\n[facilitator notes — do not read aloud]`);
         print(node.facilitator_notes.trim());
+      }
+
+      if (node.planned_minutes !== undefined) {
+        print(
+          `\n[planned time for this node: ${formatMinutes(node.planned_minutes)}]`,
+        );
       }
 
       const branches = node.branches ?? [];
@@ -80,6 +97,15 @@ export async function facilitateRun(
           print,
           options.output,
         );
+        const leftAt = latestStepTimestamp(session);
+        printBudgetOutcome(node, nodeEnteredAt, leftAt, print);
+        ({ plannedMinutesSoFar, actualMinutesSoFar } = accumulatePacing(
+          node,
+          nodeEnteredAt,
+          leftAt,
+          plannedMinutesSoFar,
+          actualMinutesSoFar,
+        ));
         if (finished) {
           break;
         }
@@ -87,11 +113,23 @@ export async function facilitateRun(
       }
 
       const nextNode = session.choose(choiceIndex);
+      const leftAt = latestStepTimestamp(session);
+      printBudgetOutcome(node, nodeEnteredAt, leftAt, print);
+      ({ plannedMinutesSoFar, actualMinutesSoFar } = accumulatePacing(
+        node,
+        nodeEnteredAt,
+        leftAt,
+        plannedMinutesSoFar,
+        actualMinutesSoFar,
+      ));
       print(`\n-> ${nextNode.title}\n`);
     }
 
     const summary = session.finish();
     printSummary(summary, print);
+    if (plannedMinutesSoFar > 0) {
+      printPacingTotal(plannedMinutesSoFar, actualMinutesSoFar, print);
+    }
     return await writeTranscript(summary, options.transcriptDir);
   } finally {
     rl.close();
@@ -208,4 +246,118 @@ async function writeTranscript(
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
   return filePath;
+}
+
+function minutesBetween(from: Date, to: Date): number {
+  return Math.max(0, (to.getTime() - from.getTime()) / 60_000);
+}
+
+/**
+ * Reads the timestamp `RunSession` just recorded for the most recent step
+ * (from `choose` or `deviateTo`) rather than calling the clock again.
+ * `RunSession` already calls `now()` once per transition to stamp the
+ * transcript; reusing that value here keeps the "when did we leave this
+ * node" timestamp used for the budget display and the transcript in
+ * exact agreement, and avoids an extra, easy-to-miscount clock call.
+ */
+function latestStepTimestamp(session: RunSession): Date {
+  const lastStep = session.history[session.history.length - 1];
+  if (!lastStep) {
+    throw new Error("Expected at least one recorded step by this point");
+  }
+  return new Date(lastStep.enteredAt);
+}
+
+/**
+ * Adds a node's planned/actual minutes to the running pacing totals, if
+ * the node had a budget set. Returns a new totals object rather than
+ * mutating, to keep the call sites at each branch point straightforward.
+ */
+function accumulatePacing(
+  node: ScenarioNode,
+  enteredAt: Date,
+  leftAt: Date,
+  plannedMinutesSoFar: number,
+  actualMinutesSoFar: number,
+): { plannedMinutesSoFar: number; actualMinutesSoFar: number } {
+  if (node.planned_minutes === undefined) {
+    return { plannedMinutesSoFar, actualMinutesSoFar };
+  }
+
+  return {
+    plannedMinutesSoFar: plannedMinutesSoFar + node.planned_minutes,
+    actualMinutesSoFar: actualMinutesSoFar + minutesBetween(enteredAt, leftAt),
+  };
+}
+
+function formatMinutes(minutes: number): string {
+  const totalSeconds = Math.round(minutes * 60);
+  const wholeMinutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (wholeMinutes === 0) {
+    return `${String(seconds)}s`;
+  }
+  if (seconds === 0) {
+    return `${String(wholeMinutes)}m`;
+  }
+  return `${String(wholeMinutes)}m ${String(seconds)}s`;
+}
+
+/**
+ * Prints how long the group actually spent at a node compared to its
+ * `planned_minutes` budget, once the group has moved on (or deviated).
+ * Does nothing if the node has no budget set.
+ */
+function printBudgetOutcome(
+  node: ScenarioNode,
+  enteredAt: Date,
+  leftAt: Date,
+  print: (text: string) => void,
+): void {
+  if (node.planned_minutes === undefined) {
+    return;
+  }
+
+  const actualMinutes = minutesBetween(enteredAt, leftAt);
+  const diffMinutes = actualMinutes - node.planned_minutes;
+
+  if (Math.abs(diffMinutes) < 1 / 60) {
+    print(`[spent ${formatMinutes(actualMinutes)} — on budget]`);
+    return;
+  }
+
+  const overOrUnder = diffMinutes > 0 ? "over" : "under";
+  print(
+    `[spent ${formatMinutes(actualMinutes)} — ${formatMinutes(Math.abs(diffMinutes))} ${overOrUnder} the ${formatMinutes(node.planned_minutes)} budget]`,
+  );
+}
+
+/**
+ * Prints a running total of planned vs. actual time across every node
+ * that had a `planned_minutes` budget, once the session ends. Nodes
+ * without a budget are excluded from both sides of the comparison, so
+ * this reflects pacing only for the parts of the scenario the author
+ * chose to budget.
+ */
+function printPacingTotal(
+  plannedMinutes: number,
+  actualMinutes: number,
+  print: (text: string) => void,
+): void {
+  const diffMinutes = actualMinutes - plannedMinutes;
+  print("\n=== Pacing ===");
+  print(
+    `Planned: ${formatMinutes(plannedMinutes)} | Actual: ${formatMinutes(actualMinutes)}`,
+  );
+
+  if (Math.abs(diffMinutes) < 1 / 60) {
+    print("On budget overall.");
+    return;
+  }
+
+  const overOrUnder = diffMinutes > 0 ? "over" : "under";
+  print(
+    `${formatMinutes(Math.abs(diffMinutes))} ${overOrUnder} budget overall.`,
+  );
 }
