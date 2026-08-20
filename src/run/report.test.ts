@@ -73,8 +73,65 @@ describe("generateAfterActionReport", () => {
   it("renders the path taken from transcript steps, including chosen branches and endings", () => {
     const report = generateAfterActionReport(scenario(), summary());
 
-    expect(report).toContain("**A** — chose: go to b");
+    expect(report).toContain("**A** — chose: go to b (10m 0s)");
     expect(report).toContain("**B** — ending");
+  });
+
+  it("does not show a duration for the final step", () => {
+    const report = generateAfterActionReport(scenario(), summary());
+    const lines = report.split("\n");
+    const endingLine = lines.find((line) => line.includes("**B** — ending"));
+
+    expect(endingLine).toBe("- **B** — ending");
+  });
+
+  it("formats a sub-minute duration as seconds only", () => {
+    const report = generateAfterActionReport(
+      scenario(),
+      summary({
+        steps: [
+          {
+            nodeId: "a",
+            nodeTitle: "A",
+            enteredAt: "2026-01-01T00:00:00.000Z",
+            chosenBranchLabel: "go to b",
+          },
+          {
+            nodeId: "b",
+            nodeTitle: "B",
+            enteredAt: "2026-01-01T00:00:45.000Z",
+            chosenBranchLabel: null,
+          },
+        ],
+      }),
+    );
+
+    expect(report).toContain("**A** — chose: go to b (45s)");
+  });
+
+  it("omits a negative or unparsable duration rather than showing garbage", () => {
+    const report = generateAfterActionReport(
+      scenario(),
+      summary({
+        steps: [
+          {
+            nodeId: "a",
+            nodeTitle: "A",
+            enteredAt: "not-a-real-timestamp",
+            chosenBranchLabel: "go to b",
+          },
+          {
+            nodeId: "b",
+            nodeTitle: "B",
+            enteredAt: "2026-01-01T00:10:00.000Z",
+            chosenBranchLabel: null,
+          },
+        ],
+      }),
+    );
+
+    expect(report).toContain("- **A** — chose: go to b");
+    expect(report).not.toMatch(/chose: go to b \(/);
   });
 
   it("renders a deviation step distinctly from a chosen-branch step", () => {

@@ -177,9 +177,10 @@ scenario file won't leave you stuck mid-session.
 
 `report` turns a transcript from `run` into a Markdown After Action Report
 (AAR) template — objectives listed for you to mark off, the path actually
-taken pre-filled from the transcript, and blank sections for observations,
-lessons identified, recommendations (with owner/due date columns), and
-feedback on the exercise itself:
+taken pre-filled from the transcript (including real time spent at each
+step, useful for spotting where a session ran long), and blank sections
+for observations, lessons identified, recommendations (with owner/due date
+columns), and feedback on the exercise itself:
 
 ```bash
 npm run cli -- report scenarios/management-bad-deploy-outage.yaml transcripts/management-bad-deploy-outage-2026-08-19T10-00-00-000Z.json --out debrief.md

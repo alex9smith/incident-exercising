@@ -1,5 +1,5 @@
 import type { Scenario } from "../scenario/schema.ts";
-import type { RunSummary } from "./session.ts";
+import type { RunSummary, RunSummaryStep } from "./session.ts";
 
 /**
  * Generates a Markdown After Action Report (AAR) / Improvement Plan
@@ -59,13 +59,22 @@ export function generateAfterActionReport(
 
   lines.push("## Path taken");
   lines.push("");
-  for (const step of summary.steps) {
+  lines.push(
+    "_Time in parentheses is real time spent at that step during the session (not the scenario's fictional clock)._",
+  );
+  lines.push("");
+  for (const [index, step] of summary.steps.entries()) {
+    const duration = formatStepDuration(step, summary.steps[index + 1]);
+    const durationSuffix = duration ? ` (${duration})` : "";
+
     if (step.deviationDescription) {
       lines.push(
-        `- **${step.nodeTitle}** — deviation: ${step.deviationDescription}`,
+        `- **${step.nodeTitle}** — deviation: ${step.deviationDescription}${durationSuffix}`,
       );
     } else if (step.chosenBranchLabel) {
-      lines.push(`- **${step.nodeTitle}** — chose: ${step.chosenBranchLabel}`);
+      lines.push(
+        `- **${step.nodeTitle}** — chose: ${step.chosenBranchLabel}${durationSuffix}`,
+      );
     } else {
       lines.push(`- **${step.nodeTitle}** — ending`);
     }
@@ -107,4 +116,43 @@ export function generateAfterActionReport(
   lines.push("");
 
   return lines.join("\n");
+}
+
+/**
+ * Formats the real (wall-clock) time actually spent at a step — the gap
+ * between when it was entered and when the next step was entered — for
+ * display in the "Path taken" section. This is real session pacing, not
+ * the scenario's fictional in-story clock (`elapsed_minutes` on a node),
+ * which is a separate, unrelated concept.
+ *
+ * Returns null when there's no next step (the final/ending step — there's
+ * nothing to measure "time spent before moving on" against), or when
+ * either timestamp fails to parse (defensive: a hand-edited or malformed
+ * transcript shouldn't blow up report generation over a cosmetic detail).
+ */
+function formatStepDuration(
+  step: RunSummaryStep,
+  nextStep: RunSummaryStep | undefined,
+): string | null {
+  if (!nextStep) {
+    return null;
+  }
+
+  const enteredAt = Date.parse(step.enteredAt);
+  const nextEnteredAt = Date.parse(nextStep.enteredAt);
+  if (Number.isNaN(enteredAt) || Number.isNaN(nextEnteredAt)) {
+    return null;
+  }
+
+  const totalSeconds = Math.max(
+    0,
+    Math.round((nextEnteredAt - enteredAt) / 1000),
+  );
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes === 0) {
+    return `${String(seconds)}s`;
+  }
+  return `${String(minutes)}m ${String(seconds)}s`;
 }
