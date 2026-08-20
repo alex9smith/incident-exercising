@@ -4,13 +4,14 @@ Tooling for planning and running tabletop incident response exercises —
 practising processes, runbooks and decision-making for software and
 security incidents, without needing to touch real systems.
 
-This is a blameless exercise tool: scenarios are designed to test whether
-processes and runbooks hold up under pressure, not to catch out individuals.
-
 A scenario is a single YAML file describing a branching tabletop exercise.
 This repo provides a schema for that format, validation, a Mermaid
 flowchart generator for reviewing branch coverage before a session, and a
 terminal-based facilitator "run" mode for actually running one.
+
+You can create generic scenarios, or optionally provide organisational /
+product context and use the included Kiro or Claude skills to generate 
+more realistic and specific ones.
 
 ## Requirements
 
