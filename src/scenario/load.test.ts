@@ -84,4 +84,51 @@ describe("loadScenario", () => {
       ScenarioValidationError,
     );
   });
+
+  it("accepts a node with a valid elapsed_minutes value", async () => {
+    const filePath = join(dir, "with-elapsed-minutes.yaml");
+    await writeFile(
+      filePath,
+      VALID_SCENARIO.replace(
+        "    inject: Something happens\n",
+        "    inject: Something happens\n    elapsed_minutes: 0\n",
+      ),
+      "utf8",
+    );
+
+    const scenario = await loadScenario(filePath);
+    expect(scenario.nodes[0]?.elapsed_minutes).toBe(0);
+  });
+
+  it("throws ScenarioValidationError when elapsed_minutes is negative", async () => {
+    const filePath = join(dir, "negative-elapsed-minutes.yaml");
+    await writeFile(
+      filePath,
+      VALID_SCENARIO.replace(
+        "    inject: Something happens\n",
+        "    inject: Something happens\n    elapsed_minutes: -5\n",
+      ),
+      "utf8",
+    );
+
+    await expect(loadScenario(filePath)).rejects.toBeInstanceOf(
+      ScenarioValidationError,
+    );
+  });
+
+  it("throws ScenarioValidationError when elapsed_minutes is not an integer", async () => {
+    const filePath = join(dir, "fractional-elapsed-minutes.yaml");
+    await writeFile(
+      filePath,
+      VALID_SCENARIO.replace(
+        "    inject: Something happens\n",
+        "    inject: Something happens\n    elapsed_minutes: 2.5\n",
+      ),
+      "utf8",
+    );
+
+    await expect(loadScenario(filePath)).rejects.toBeInstanceOf(
+      ScenarioValidationError,
+    );
+  });
 });

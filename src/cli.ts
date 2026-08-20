@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import * as v from "valibot";
 import { loadScenario } from "./scenario/load.ts";
 import { checkGraphIntegrity } from "./scenario/graph.ts";
 import { generateFlowchart } from "./scenario/flowchart.ts";
 import { facilitateRun } from "./run/facilitate.ts";
+import { generateAfterActionReport } from "./run/report.ts";
+import { RunSummarySchema } from "./run/session.ts";
 
 const HELP_TEXT = `incident-exercising - tabletop incident exercise tooling
 
@@ -11,6 +14,7 @@ Usage:
   incident-exercising validate <scenario.yaml>
   incident-exercising flowchart <scenario.yaml> [--out <file.mmd>]
   incident-exercising run <scenario.yaml> [--transcript-dir <dir>]
+  incident-exercising report <scenario.yaml> <transcript.json> [--out <file.md>]
   incident-exercising help
 
 Commands:
@@ -23,6 +27,11 @@ Commands:
               each node's inject and facilitator notes, prompts for which
               branch the group chose, and writes a JSON transcript of the
               path taken when finished (default ./transcripts).
+  report      Generate an After Action Report (AAR) Markdown template from
+              a transcript produced by \`run\`: objectives and the path
+              taken are pre-filled, with blank sections for observations,
+              lessons identified, and recommendations to complete during
+              debrief. Prints to stdout unless --out is given.
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -35,6 +44,8 @@ async function main(argv: string[]): Promise<number> {
       return runFlowchart(rest);
     case "run":
       return runFacilitate(rest);
+    case "report":
+      return runReport(rest);
     case "help":
     case undefined:
       console.log(HELP_TEXT);
@@ -134,6 +145,63 @@ async function runFacilitate(args: string[]): Promise<number> {
   console.log(`\nTranscript written to ${transcriptPath}`);
 
   return 0;
+}
+
+async function runReport(args: string[]): Promise<number> {
+  const [scenarioPath, transcriptPath] = args;
+  if (!scenarioPath || !transcriptPath) {
+    console.error(
+      "Usage: incident-exercising report <scenario.yaml> <transcript.json> [--out <file.md>]",
+    );
+    return 1;
+  }
+
+  const outIndex = args.indexOf("--out");
+  const outPath = outIndex !== -1 ? args[outIndex + 1] : undefined;
+
+  const scenario = await loadScenario(scenarioPath);
+
+  let summary: v.InferOutput<typeof RunSummarySchema>;
+  try {
+    const raw = await readFile(transcriptPath, "utf8");
+    summary = parseRunSummary(raw, transcriptPath);
+  } catch (error) {
+    console.error(
+      `Could not read transcript "${transcriptPath}": ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return 1;
+  }
+
+  const report = generateAfterActionReport(scenario, summary);
+
+  if (outPath) {
+    await writeFile(outPath, `${report}\n`, "utf8");
+    console.log(`Wrote After Action Report to ${outPath}`);
+  } else {
+    console.log(report);
+  }
+
+  return 0;
+}
+
+function parseRunSummary(
+  raw: string,
+  transcriptPath: string,
+): v.InferOutput<typeof RunSummarySchema> {
+  const parsed: unknown = JSON.parse(raw);
+  const result = v.safeParse(RunSummarySchema, parsed);
+
+  if (!result.success) {
+    throw new Error(
+      `"${transcriptPath}" does not look like a run transcript: ${result.issues
+        .map((issue) => issue.message)
+        .join("; ")}`,
+    );
+  }
+
+  return result.output;
 }
 
 main(process.argv.slice(2))

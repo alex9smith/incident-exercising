@@ -28,6 +28,20 @@ export const NodeSchema = v.object({
   title: v.pipe(v.string(), v.nonEmpty("Node title must not be empty")),
   inject: v.pipe(v.string(), v.nonEmpty("Node inject must not be empty")),
   facilitator_notes: v.optional(v.string()),
+  /**
+   * Minutes elapsed since the scenario's fictional start, at the point
+   * this node's inject is revealed. Optional — a scenario can mix nodes
+   * that set this with nodes that don't. Used for MSEL-style timeline
+   * validation (`checkGraphIntegrity`) and for a future chronological
+   * export; it does not affect live facilitation pacing.
+   */
+  elapsed_minutes: v.optional(
+    v.pipe(
+      v.number(),
+      v.integer("elapsed_minutes must be an integer"),
+      v.minValue(0, "elapsed_minutes must not be negative"),
+    ),
+  ),
   branches: v.optional(v.array(BranchSchema)),
 });
 

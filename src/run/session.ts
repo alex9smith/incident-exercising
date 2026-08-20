@@ -1,4 +1,5 @@
 import type { Branch, Scenario, ScenarioNode } from "../scenario/schema.ts";
+import * as v from "valibot";
 
 export interface VisitedStep {
   readonly node: ScenarioNode;
@@ -168,7 +169,7 @@ export interface RunSummaryStep {
   readonly nodeTitle: string;
   readonly enteredAt: string;
   readonly chosenBranchLabel: string | null;
-  readonly deviationDescription?: string;
+  readonly deviationDescription?: string | undefined;
 }
 
 export interface RunSummary {
@@ -178,3 +179,26 @@ export interface RunSummary {
   readonly finishedAt: string;
   readonly steps: RunSummaryStep[];
 }
+
+/**
+ * Validates that a value parsed from a transcript JSON file has the shape
+ * of a `RunSummary`, without resorting to a type assertion. Used by the
+ * `report` CLI command, which reads a transcript written by a previous
+ * `run` and shouldn't trust its shape blindly (it may be hand-edited, or
+ * from an incompatible version of this tool).
+ */
+export const RunSummarySchema = v.object({
+  scenarioId: v.string(),
+  scenarioTitle: v.string(),
+  startedAt: v.string(),
+  finishedAt: v.string(),
+  steps: v.array(
+    v.object({
+      nodeId: v.string(),
+      nodeTitle: v.string(),
+      enteredAt: v.string(),
+      chosenBranchLabel: v.union([v.string(), v.null()]),
+      deviationDescription: v.optional(v.string()),
+    }),
+  ),
+});

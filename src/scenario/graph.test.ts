@@ -145,4 +145,69 @@ describe("checkGraphIntegrity", () => {
     const issues = checkGraphIntegrity(scenario);
     expect(issues.every((issue) => issue.severity === "error")).toBe(true);
   });
+
+  it("reports no timeline issue when elapsed_minutes increases along a branch", () => {
+    const scenario = baseScenario([
+      {
+        id: "a",
+        title: "A",
+        inject: "inject a",
+        elapsed_minutes: 0,
+        branches: [{ label: "go to b", next: "b" }],
+      },
+      { id: "b", title: "B", inject: "inject b", elapsed_minutes: 15 },
+    ]);
+
+    expect(checkGraphIntegrity(scenario)).toEqual([]);
+  });
+
+  it("reports no timeline issue when elapsed_minutes stays the same along a branch", () => {
+    const scenario = baseScenario([
+      {
+        id: "a",
+        title: "A",
+        inject: "inject a",
+        elapsed_minutes: 10,
+        branches: [{ label: "go to b", next: "b" }],
+      },
+      { id: "b", title: "B", inject: "inject b", elapsed_minutes: 10 },
+    ]);
+
+    expect(checkGraphIntegrity(scenario)).toEqual([]);
+  });
+
+  it("reports a warning when elapsed_minutes decreases along a branch", () => {
+    const scenario = baseScenario([
+      {
+        id: "a",
+        title: "A",
+        inject: "inject a",
+        elapsed_minutes: 20,
+        branches: [{ label: "go to b", next: "b" }],
+      },
+      { id: "b", title: "B", inject: "inject b", elapsed_minutes: 5 },
+    ]);
+
+    const issues = checkGraphIntegrity(scenario);
+    expect(issues).toContainEqual({
+      severity: "warning",
+      message:
+        'Node "a" (elapsed_minutes: 20) has a branch ("go to b") to node "b" (elapsed_minutes: 5), which goes backwards in time — intentional for a loop-back, but worth double-checking',
+    });
+  });
+
+  it("skips timeline checks when either node omits elapsed_minutes", () => {
+    const scenario = baseScenario([
+      {
+        id: "a",
+        title: "A",
+        inject: "inject a",
+        elapsed_minutes: 20,
+        branches: [{ label: "go to b", next: "b" }],
+      },
+      { id: "b", title: "B", inject: "inject b" },
+    ]);
+
+    expect(checkGraphIntegrity(scenario)).toEqual([]);
+  });
 });

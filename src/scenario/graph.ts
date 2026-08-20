@@ -77,6 +77,45 @@ export function checkGraphIntegrity(scenario: Scenario): GraphIssue[] {
     });
   }
 
+  issues.push(...checkTimelineOrdering(scenario, nodesById));
+
+  return issues;
+}
+
+/**
+ * Warns about branches whose target node has an earlier `elapsed_minutes`
+ * than the node it leaves from. Nodes that don't set `elapsed_minutes` are
+ * skipped (the field is optional and a scenario may only tag some nodes).
+ * A decreasing edge can be a genuine authoring mistake (times entered out
+ * of order) or an intentional loop-back ("wait and monitor") — either way
+ * it's worth the author's attention, so this is a warning, not an error.
+ */
+function checkTimelineOrdering(
+  scenario: Scenario,
+  nodesById: Map<string, Scenario["nodes"][number]>,
+): GraphIssue[] {
+  const issues: GraphIssue[] = [];
+
+  for (const node of scenario.nodes) {
+    if (node.elapsed_minutes === undefined) {
+      continue;
+    }
+
+    for (const branch of node.branches ?? []) {
+      const nextNode = nodesById.get(branch.next);
+      if (nextNode?.elapsed_minutes === undefined) {
+        continue;
+      }
+
+      if (nextNode.elapsed_minutes < node.elapsed_minutes) {
+        issues.push({
+          severity: "warning",
+          message: `Node "${node.id}" (elapsed_minutes: ${String(node.elapsed_minutes)}) has a branch ("${branch.label}") to node "${nextNode.id}" (elapsed_minutes: ${String(nextNode.elapsed_minutes)}), which goes backwards in time — intentional for a loop-back, but worth double-checking`,
+        });
+      }
+    }
+  }
+
   return issues;
 }
 

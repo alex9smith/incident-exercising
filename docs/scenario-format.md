@@ -92,6 +92,7 @@ timeline, so the same scenario file can support divergent paths.
 | `title`             | yes      | Short label, used in the flowchart node box                                                                                    |
 | `inject`            | yes      | The information revealed to participants at this point                                                                         |
 | `facilitator_notes` | no       | Guidance for the person running the session: what to watch for, prompts to nudge discussion, what a strong response looks like |
+| `elapsed_minutes`   | no       | Minutes since the scenario's fictional start, at the point this inject is revealed (see below)                                 |
 | `branches`          | no       | List of possible participant decisions leading elsewhere. Omit for a terminal node (the exercise/path ends here)               |
 
 Each entry in `branches` has:
@@ -107,6 +108,44 @@ crisis scenarios, usually should) have several distinct endings reflecting
 different quality of response, so the debrief can compare what happened
 against the other paths.
 
+### `elapsed_minutes`: a fictional clock
+
+Injects often already state a time in prose (`09:14. A ransomware
+group's...`), but that's just narrative text — nothing checks it. Setting
+`elapsed_minutes` gives the same information a structured, checkable form:
+minutes elapsed since the scenario's fictional start (not real
+wall-clock/session time — the exercise itself might spend 15 minutes of
+real discussion on a node that's fictionally instantaneous).
+
+```yaml
+- id: node-alert
+  title: Error rate climbing
+  elapsed_minutes: 0
+  inject: >
+    14:02. Checkout error rate has climbed from a baseline of 0.2% to 6%...
+  branches:
+    - label: Roll back the deploy now
+      next: node-rollback
+- id: node-rollback
+  title: Rollback in progress
+  elapsed_minutes: 12
+  inject: >
+    14:14. The deploy is being rolled back...
+```
+
+It's optional and can be set on some nodes and omitted on others — a
+scenario doesn't need full timeline coverage to benefit from it.
+`incident-exercising validate` uses it for one check: a branch whose
+target node has an earlier `elapsed_minutes` than the node it leaves from
+is flagged as a warning (not an error, since an intentional loop-back,
+e.g. "wait and monitor", can legitimately point back to an earlier time).
+This exists to catch the more common case — inject times entered out of
+order as a scenario is edited — before it reaches a session.
+
+This field doesn't drive live facilitation (there's no timer in `run`);
+it's for authoring-time consistency checking now, and is intended to
+support a future chronological/MSEL-style export of a scenario's injects.
+
 ## Validation rules
 
 `incident-exercising validate <file>` checks, beyond the schema shape:
@@ -119,6 +158,9 @@ against the other paths.
   a work-in-progress scenario may have draft branches not yet wired up
 - cycles are allowed (a scenario can loop back, e.g. "wait and monitor")
   but a warning is raised if `start` cannot reach an end state at all
+- a branch whose target node has an earlier `elapsed_minutes` than the
+  source node is flagged as a warning (see `elapsed_minutes` above) —
+  skipped for nodes that don't set it
 
 ## Generating a flowchart
 

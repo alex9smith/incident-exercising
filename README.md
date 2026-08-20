@@ -10,7 +10,7 @@ flowchart generator for reviewing branch coverage before a session, and a
 terminal-based facilitator "run" mode for actually running one.
 
 You can create generic scenarios, or optionally provide organisational /
-product context and use the included Kiro or Claude skills to generate 
+product context and use the included Kiro or Claude skills to generate
 more realistic and specific ones.
 
 ## Requirements
@@ -165,20 +165,41 @@ change where it's saved:
 npm run cli -- run scenarios/exec-ransomware-crisis.yaml --transcript-dir ./transcripts/2026-08-19-exec-drill
 ```
 
-The transcript is plain data, not prose — it's meant as raw material for
-writing up post-exercise notes afterwards, not a replacement for them.
+The transcript is plain data, not prose — pass it to `report` (see below)
+to get a starting point for post-exercise notes, rather than writing them
+up from scratch.
 
 `run` validates the scenario's branching graph first and refuses to start
 if there are structural errors (the same checks as `validate`), so a broken
 scenario file won't leave you stuck mid-session.
 
+## Writing up an After Action Report
+
+`report` turns a transcript from `run` into a Markdown After Action Report
+(AAR) template — objectives listed for you to mark off, the path actually
+taken pre-filled from the transcript, and blank sections for observations,
+lessons identified, recommendations (with owner/due date columns), and
+feedback on the exercise itself:
+
+```bash
+npm run cli -- report scenarios/management-bad-deploy-outage.yaml transcripts/management-bad-deploy-outage-2026-08-19T10-00-00-000Z.json --out debrief.md
+```
+
+This deliberately doesn't try to infer what happened, why, or what should
+change — that synthesis belongs to whoever ran/attended the session. What
+it saves you is the scaffolding: a consistent structure to fill in during
+or shortly after debrief (a "hot-wash" review, in NCSC/NIST exercise
+terminology), so lessons and recommendations end up somewhere structured
+rather than as scattered notes or nowhere at all.
+
 ## CLI commands
 
-| Command                                        | Description                                                                                                                                                                      |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `validate <scenario.yaml>`                     | Checks the file against the schema and checks the branching graph for dangling references, duplicate ids, unreachable nodes, and paths with no ending                            |
-| `flowchart <scenario.yaml> [--out <file>]`     | Generates a Mermaid flowchart from the branching graph. Prints to stdout, or writes to `--out`                                                                                   |
-| `run <scenario.yaml> [--transcript-dir <dir>]` | Interactively facilitates the scenario in the terminal, prompting for which branch was chosen at each node, and writes a JSON transcript when finished (default `./transcripts`) |
+| Command                                                   | Description                                                                                                                                                                      |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `validate <scenario.yaml>`                                | Checks the file against the schema and checks the branching graph for dangling references, duplicate ids, unreachable nodes, and paths with no ending                            |
+| `flowchart <scenario.yaml> [--out <file>]`                | Generates a Mermaid flowchart from the branching graph. Prints to stdout, or writes to `--out`                                                                                   |
+| `run <scenario.yaml> [--transcript-dir <dir>]`            | Interactively facilitates the scenario in the terminal, prompting for which branch was chosen at each node, and writes a JSON transcript when finished (default `./transcripts`) |
+| `report <scenario.yaml> <transcript.json> [--out <file>]` | Generates a Markdown After Action Report template from a `run` transcript. Prints to stdout, or writes to `--out`                                                                |
 
 ## Development
 
